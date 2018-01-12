@@ -1,8 +1,8 @@
 package sk.styk.martin.apkanalyzer.model.server;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import sk.styk.martin.apkanalyzer.BuildConfig;
 import sk.styk.martin.apkanalyzer.model.detail.ActivityData;
 import sk.styk.martin.apkanalyzer.model.detail.AppDetailData;
 import sk.styk.martin.apkanalyzer.model.detail.AppSource;
@@ -26,6 +26,7 @@ public class ServerSideAppData {
 
     // ID of device which uploaded this data
     private String androidId;
+    private int apkAnalyzerVersion;
 
     // Hash of data structure, can be used to identify two exactly same apps
     private int appHash;
@@ -45,7 +46,7 @@ public class ServerSideAppData {
     // CertificateData
     private String signAlgorithm;
     private String publicKeyMd5;
-    private String certMd5;
+    private String certificateHash;
     private int serialNumber;
 
     // Activities
@@ -82,7 +83,6 @@ public class ServerSideAppData {
     private String arscHash;
     private String manifestHash;
     private List<String> pngHashes;
-    private List<String> layoutHashes;
 
     private int numberDrawables;
     private int numberLayouts;
@@ -126,7 +126,7 @@ public class ServerSideAppData {
     public ServerSideAppData(AppDetailData appDetailData, String deviceId) {
 
         androidId = deviceId;
-        this.appHash = appHash;
+        apkAnalyzerVersion = BuildConfig.VERSION_CODE;
 
         analysisMode = appDetailData.getAnalysisMode();
 
@@ -145,7 +145,7 @@ public class ServerSideAppData {
         CertificateData certificateData = appDetailData.getCertificateData();
         signAlgorithm = certificateData.getSignAlgorithm();
         publicKeyMd5 = certificateData.getPublicKeyMd5();
-        certMd5 = certificateData.getCertMd5();
+        certificateHash = certificateData.getCertificateHash();
         serialNumber = certificateData.getSerialNumber();
 
         // Activities
@@ -190,10 +190,9 @@ public class ServerSideAppData {
         manifestHash = fileData.getManifestHash();
 
         pngHashes = fileData.getOnlyHash(fileData.getPngHashes());
-        layoutHashes = fileData.getOnlyHash(fileData.getLayoutHashes());
 
         numberDrawables = fileData.getDrawableHashes().size();
-        numberLayouts = layoutHashes.size();
+        numberLayouts = fileData.getOnlyHash(fileData.getLayoutHashes()).size();
         numberMenus = fileData.getOnlyHash(fileData.getMenuHashes()).size();
         numberFilesTotal = fileData.getTotalFiles();
 
@@ -203,7 +202,7 @@ public class ServerSideAppData {
         numberXmlsWithDifferentName = fileData.getNumberXmlsWithDifferentName();
 
         pngsAggregatedHash = HashCodeHelper.hashList(pngHashes);
-        layoutsAggregatedHash = HashCodeHelper.hashList(layoutHashes);
+        layoutsAggregatedHash = HashCodeHelper.hashList(fileData.getOnlyHash(fileData.getLayoutHashes()));
         menusAggregatedHash = HashCodeHelper.hashList(fileData.getOnlyHash(fileData.getMenuHashes()));
 
         //ResourceData
@@ -238,60 +237,13 @@ public class ServerSideAppData {
     private int computeOverallHash() {
         int result = 0;
         result = 31 * result + (packageName != null ? packageName.hashCode() : 0);
-        result = 31 * result + (applicationName != null ? applicationName.hashCode() : 0);
-        result = 31 * result + (versionName != null ? versionName.hashCode() : 0);
-        result = 31 * result + versionCode;
-        result = 31 * result + minSdkVersion;
-        result = 31 * result + targetSdkVersion;
-        result = 31 * result + (publicKeyMd5 != null ? publicKeyMd5.hashCode() : 0);
-        result = 31 * result + (certMd5 != null ? certMd5.hashCode() : 0);
-        result = 31 * result + numberActivities;
-        result = 31 * result + activitiesAggregatedHash;
-        result = 31 * result + numberServices;
-        result = 31 * result + servicesAggregatedHash;
-        result = 31 * result + numberContentProviders;
-        result = 31 * result + providersAggregatedHash;
-        result = 31 * result + numberBroadcastReceivers;
-        result = 31 * result + receiversAggregatedHash;
-        result = 31 * result + numberDefinedPermissions;
-        result = 31 * result + definedPermissionsAggregatedHash;
-        result = 31 * result + numberUsedPermissions;
-        result = 31 * result + usedPermissionsAggregatedHash;
-        result = 31 * result + numberFeatures;
-        result = 31 * result + featuresAggregatedHash;
+        result = 31 * result + (certificateHash != null ? certificateHash.hashCode() : 0);
         result = 31 * result + (dexHash != null ? dexHash.hashCode() : 0);
         result = 31 * result + (arscHash != null ? arscHash.hashCode() : 0);
         result = 31 * result + (manifestHash != null ? manifestHash.hashCode() : 0);
-        result = 31 * result + numberDrawables;
-        result = 31 * result + numberLayouts;
-        result = 31 * result + numberMenus;
-        result = 31 * result + numberFilesTotal;
         result = 31 * result + numberPngs;
         result = 31 * result + numberXmls;
-        result = 31 * result + numberPngsWithDifferentName;
-        result = 31 * result + numberXmlsWithDifferentName;
         result = 31 * result + pngsAggregatedHash;
-        result = 31 * result + layoutsAggregatedHash;
-        result = 31 * result + menusAggregatedHash;
-        result = 31 * result + numberDifferentDrawables;
-        result = 31 * result + numberDifferentLayouts;
-        result = 31 * result + pngDrawables;
-        result = 31 * result + ninePatchDrawables;
-        result = 31 * result + jpgDrawables;
-        result = 31 * result + gifDrawables;
-        result = 31 * result + xmlDrawables;
-        result = 31 * result + ldpiDrawables;
-        result = 31 * result + mdpiDrawables;
-        result = 31 * result + hdpiDrawables;
-        result = 31 * result + xhdpiDrawables;
-        result = 31 * result + xxhdpiDrawables;
-        result = 31 * result + xxxhdpiDrawables;
-        result = 31 * result + nodpiDrawables;
-        result = 31 * result + tvdpiDrawables;
-        result = 31 * result + unspecifiedDpiDrawables;
-        result = 31 * result + totalNumberOfClasses;
-        result = 31 * result + classesAggregatedHash;
-        result = 31 * result + totalNumberOfClassesWithoutInnerClasses;
 
         return result;
     }

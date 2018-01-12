@@ -1,12 +1,13 @@
 package sk.styk.martin.apkanalyzer.model.statistics;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import sk.styk.martin.apkanalyzer.model.detail.AppSource;
 import sk.styk.martin.apkanalyzer.util.AndroidVersionHelper;
 import sk.styk.martin.apkanalyzer.util.InstallLocationHelper;
-import sk.styk.martin.apkanalyzer.util.MathStatistics;
 import sk.styk.martin.apkanalyzer.util.PercentagePair;
 
 /**
@@ -18,14 +19,14 @@ public class LocalStatisticsDataBuilder {
     private int analyzeFailed = 0;
 
     private int systemApps;
-    private Map<String, Integer> installLocation = new HashMap<>(3);
-    private Map<Integer, Integer> targetSdk = new HashMap<>(AndroidVersionHelper.MAX_SDK_VERSION);
-    private Map<Integer, Integer> minSdk = new HashMap<>(AndroidVersionHelper.MAX_SDK_VERSION);
-    private Map<AppSource, Integer> appSource = new HashMap<>(AppSource.values().length);
+    private Map<String, List<String>> installLocation = new HashMap<>(3);
+    private Map<Integer, List<String>> targetSdk = new HashMap<>(AndroidVersionHelper.MAX_SDK_VERSION);
+    private Map<Integer, List<String>> minSdk = new HashMap<>(AndroidVersionHelper.MAX_SDK_VERSION);
+    private Map<AppSource, List<String>> appSource = new HashMap<>(AppSource.values().length);
 
     private float[] apkSize;
 
-    private Map<String, Integer> signAlgorithm = new HashMap<>(5);
+    private Map<String, List<String>> signAlgorithm = new HashMap<>(5);
 
     private float[] activities;
     private float[] services;
@@ -64,30 +65,30 @@ public class LocalStatisticsDataBuilder {
         data.setAnalyzeSuccess(new PercentagePair(analyzeSuccess, analyzeSuccess + analyzeFailed));
         data.setAnalyzeFailed(new PercentagePair(analyzeFailed, analyzeSuccess + analyzeFailed));
         data.setSystemApps(new PercentagePair(systemApps, analyzeSuccess));
-        data.setInstallLocation(getPercentagePairMap(installLocation));
-        data.setTargetSdk(getPercentagePairMap(targetSdk));
-        data.setMinSdk(getPercentagePairMap(minSdk));
+        data.setInstallLocation(installLocation);
+        data.setTargetSdk(targetSdk);
+        data.setMinSdk(minSdk);
 
-        data.setAppSource(getPercentagePairMap(appSource));
+        data.setAppSource(appSource);
 
-        data.setApkSize(new MathStatistics(apkSize));
+        data.setApkSize(new MathStatisticsBuilder(apkSize).build());
 
-        data.setSignAlgorithm(getPercentagePairMap(signAlgorithm));
+        data.setSignAlgorithm(signAlgorithm);
 
-        data.setActivites(new MathStatistics(activities));
-        data.setServices(new MathStatistics(services));
-        data.setReceivers(new MathStatistics(receivers));
-        data.setProviders(new MathStatistics(providers));
+        data.setActivites(new MathStatisticsBuilder(activities).build());
+        data.setServices(new MathStatisticsBuilder(services).build());
+        data.setReceivers(new MathStatisticsBuilder(receivers).build());
+        data.setProviders(new MathStatisticsBuilder(providers).build());
 
-        data.setUsedPermissions(new MathStatistics(usedPermissions));
-        data.setDefinedPermissions(new MathStatistics(definedPermissions));
-        data.setFiles(new MathStatistics(files));
+        data.setUsedPermissions(new MathStatisticsBuilder(usedPermissions).build());
+        data.setDefinedPermissions(new MathStatisticsBuilder(definedPermissions).build());
+        data.setFiles(new MathStatisticsBuilder(files).build());
 
-        data.setDrawables(new MathStatistics(drawables));
-        data.setDifferentDrawables(new MathStatistics(differentDrawables));
+        data.setDrawables(new MathStatisticsBuilder(drawables).build());
+        data.setDifferentDrawables(new MathStatisticsBuilder(differentDrawables).build());
 
-        data.setLayouts(new MathStatistics(layouts));
-        data.setDifferentLayouts(new MathStatistics(differentLayouts));
+        data.setLayouts(new MathStatisticsBuilder(layouts).build());
+        data.setDifferentLayouts(new MathStatisticsBuilder(differentLayouts).build());
 
         return data;
     }
@@ -99,12 +100,12 @@ public class LocalStatisticsDataBuilder {
         }
         analyzeSuccess++;
         if (appData.isSystemApp()) systemApps++;
-        addToMap(installLocation, InstallLocationHelper.resolveInstallLocation(appData.getInstallLocation()));
-        addToMap(targetSdk, appData.getTargetSdk());
-        addToMap(minSdk, appData.getMinSdk());
+        addToMap(installLocation, InstallLocationHelper.resolveInstallLocation(appData.getInstallLocation()), appData.getPackageName());
+        addToMap(targetSdk, appData.getTargetSdk(), appData.getPackageName());
+        addToMap(minSdk, appData.getMinSdk(), appData.getPackageName());
         apkSize[analyzeSuccess] = appData.getApkSize();
-        addToMap(signAlgorithm, appData.getSignAlgorithm());
-        addToMap(appSource, appData.getAppSource());
+        addToMap(signAlgorithm, appData.getSignAlgorithm(), appData.getPackageName());
+        addToMap(appSource, appData.getAppSource(), appData.getPackageName());
 
         activities[analyzeSuccess] = appData.getActivities();
         services[analyzeSuccess] = appData.getServices();
@@ -123,22 +124,14 @@ public class LocalStatisticsDataBuilder {
         differentLayouts[analyzeSuccess] = appData.getDifferentLayouts();
     }
 
-    private <T> void addToMap(Map<T, Integer> map, T key) {
-        Integer value;
-        if ((value = map.get(key)) != null) {
-            value++;
-            map.put(key, value);
+    private <T> void addToMap(Map<T, List<String>> map, T key, String packageName) {
+        List<String> apps;
+        if ((apps = map.get(key)) != null) {
+            apps.add(packageName);
         } else {
-            map.put(key, 1);
+            apps = new ArrayList<>();
+            apps.add(packageName);
         }
+        map.put(key, apps);
     }
-
-    private <T> Map<T, PercentagePair> getPercentagePairMap(Map<T, Integer> map) {
-        Map<T, PercentagePair> finalMap = new HashMap<>(map.size());
-        for (Map.Entry<T, Integer> entry : map.entrySet()) {
-            finalMap.put(entry.getKey(), new PercentagePair(entry.getValue(), analyzeSuccess));
-        }
-        return finalMap;
-    }
-
 }

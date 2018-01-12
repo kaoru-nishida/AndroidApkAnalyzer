@@ -5,9 +5,7 @@ import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.CollapsingToolbarLayout;
@@ -27,8 +25,6 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.io.File;
-
 import sk.styk.martin.apkanalyzer.R;
 import sk.styk.martin.apkanalyzer.activity.detailfragment.ManifestActivity;
 import sk.styk.martin.apkanalyzer.adapter.pager.AppDetailPagerAdapter;
@@ -36,6 +32,7 @@ import sk.styk.martin.apkanalyzer.business.task.AppDetailLoader;
 import sk.styk.martin.apkanalyzer.business.task.FileCopyService;
 import sk.styk.martin.apkanalyzer.business.task.upload.AppDataUploadTask;
 import sk.styk.martin.apkanalyzer.model.detail.AppDetailData;
+import sk.styk.martin.apkanalyzer.util.file.AppOperations;
 
 /**
  * A fragment representing a single Item detail screen.
@@ -50,7 +47,9 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
     public static final String ARG_PACKAGE_PATH = "packagePath";
     public static final String ARG_CHILD = "dataForChild";
     private static final int REQUEST_STORAGE_PERMISSION = 11;
+
     private AppDetailData data;
+    private String packagePath;
 
     private CollapsingToolbarLayout appBarLayout;
     private ImageView appBarLayuotImageView;
@@ -67,6 +66,7 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
         super.onCreate(savedInstanceState);
 
         adapter = new AppDetailPagerAdapter(getActivity(), getFragmentManager());
+        packagePath = getArguments().getString(ARG_PACKAGE_PATH);
         getLoaderManager().initLoader(AppDetailLoader.ID, getArguments(), this);
     }
 
@@ -74,19 +74,19 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View rootView = inflater.inflate(sk.styk.martin.apkanalyzer.R.layout.fragment_app_detail, container, false);
 
-        loadingBar = (ProgressBar) rootView.findViewById(R.id.item_detail_loading);
-        appBarLayout = (CollapsingToolbarLayout) getActivity().findViewById(sk.styk.martin.apkanalyzer.R.id.toolbar_layout);
-        appBarLayuotImageView = (ImageView) getActivity().findViewById(R.id.toolbar_layout_image);
-        errorLoadingText = (TextView) rootView.findViewById(R.id.item_detail_error);
+        loadingBar = rootView.findViewById(R.id.item_detail_loading);
+        appBarLayout = getActivity().findViewById(R.id.toolbar_layout);
+        appBarLayuotImageView = getActivity().findViewById(R.id.toolbar_layout_image);
+        errorLoadingText = rootView.findViewById(R.id.item_detail_error);
 
-        viewPager = (ViewPager) rootView.findViewById(R.id.pager);
+        viewPager = rootView.findViewById(R.id.pager);
         viewPager.setAdapter(adapter);
 
-        TabLayout tabLayout = (TabLayout) rootView.findViewById(R.id.tabs);
+        TabLayout tabLayout = rootView.findViewById(R.id.tabs);
         tabLayout.setupWithViewPager(viewPager);
 
         // if we are in 2-pane mode initialize floating button
-        FloatingActionButton actionButton = (FloatingActionButton) rootView.findViewById(R.id.btn_actions);
+        FloatingActionButton actionButton = rootView.findViewById(R.id.btn_actions);
         if (actionButton != null) {
             actionButton.setOnClickListener(this);
         }
@@ -217,21 +217,16 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
         dialogView.findViewById(R.id.btn_share_apk).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent shareIntent = new Intent();
-                shareIntent.setAction(Intent.ACTION_SEND);
-                Uri uri = Uri.fromFile(new File(data.getGeneralData().getApkDirectory()));
-
-                shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-                shareIntent.setType("application/vnd.android.package-archive");
-
+                new AppOperations().shareApkFile(getContext(),data.getGeneralData().getApkDirectory());
                 dialog.dismiss();
+            }
+        });
 
-                try {
-                    startActivity(Intent.createChooser(shareIntent, getString(R.string.share_apk_using)));
-                } catch (ActivityNotFoundException e) {
-                    // this might happen on Android 4.4
-                    Snackbar.make(getActivity().findViewById(android.R.id.content), R.string.activity_not_found_sharing, Snackbar.LENGTH_LONG).show();
-                }
+        dialogView.findViewById(R.id.btn_show_app_google_play).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                new AppOperations().openGooglePlay(getContext(), data.getGeneralData().getPackageName());
             }
         });
 
@@ -252,17 +247,22 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
             dialogView.findViewById(R.id.btn_show_app_system_page).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Intent systemInfoIntent = new Intent();
-                    systemInfoIntent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    systemInfoIntent.setData(Uri.parse("package:" + data.getGeneralData().getPackageName()));
-
                     dialog.dismiss();
-                    startActivity(systemInfoIntent);
+                    new AppOperations().openAppSystemPage(getContext(), data.getGeneralData().getPackageName());
                 }
             });
         } else if (data.isAnalyzedApkFile()) {
             dialogView.findViewById(R.id.btn_show_manifest).setVisibility(View.GONE);
             dialogView.findViewById(R.id.btn_show_app_system_page).setVisibility(View.GONE);
+            dialogView.findViewById(R.id.btn_install_app).setVisibility(View.VISIBLE);
+
+            dialogView.findViewById(R.id.btn_install_app).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    dialog.dismiss();
+                    new AppOperations().installPackage(getContext(), packagePath);
+                }
+            });
         }
 
         isDialogShowing = true;
@@ -270,15 +270,7 @@ public class AppDetailFragment extends Fragment implements LoaderManager.LoaderC
     }
 
     private void exportApkFile() {
-        File source = new File(data.getGeneralData().getApkDirectory());
-        File target = new File(Environment.getExternalStorageDirectory(), data.getGeneralData().getPackageName()+ "_" + data.getGeneralData().getVersionCode() + ".apk");
-
-        Intent intent = new Intent(getActivity(), FileCopyService.class);
-        intent.putExtra(FileCopyService.SOURCE_FILE, source.getAbsolutePath());
-        intent.putExtra(FileCopyService.TARGET_FILE, target.getAbsolutePath());
-
-        getActivity().startService(intent);
-
-        Snackbar.make(getActivity().findViewById(android.R.id.content), getString(R.string.copy_apk_background, target.getAbsolutePath()), Snackbar.LENGTH_LONG).show();
+        String targetFile = FileCopyService.startService(getActivity(), data);
+        Snackbar.make(getActivity().findViewById(android.R.id.content), getString(R.string.copy_apk_background, targetFile), Snackbar.LENGTH_LONG).show();
     }
 }

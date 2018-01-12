@@ -47,17 +47,22 @@ public class ConnectivityHelper {
 
     public static boolean hasAccessToServer(Context context) {
         if (isNetworkAvailable(context)) {
+            HttpURLConnection connection = null;
             try {
-                HttpURLConnection urlc = (HttpURLConnection)
+                connection = (HttpURLConnection)
                         (new URL(URL_BASE + GENERATE_200)
                                 .openConnection());
-                urlc.setRequestProperty("User-Agent", "Android");
-                urlc.setRequestProperty("Connection", "close");
-                urlc.setConnectTimeout(10000);
-                urlc.connect();
-                return (urlc.getResponseCode() == 200);
+                connection.setRequestProperty("User-Agent", "Android");
+                connection.setRequestProperty("Connection", "close");
+                connection.setConnectTimeout(10000);
+                connection.connect();
+                return (connection.getResponseCode() == 200);
             } catch (IOException e) {
                 Log.e(TAG, "Error checking internet connection", e);
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
         } else {
             Log.d(TAG, "No network available!");
@@ -81,10 +86,7 @@ public class ConnectivityHelper {
 
             WifiInfo wifiInfo = wifiManager.getConnectionInfo();
 
-            if (wifiInfo.getNetworkId() == -1) {
-                return false; // Not connected to an access point
-            }
-            return true; // Connected to an access point
+            return wifiInfo.getNetworkId() != -1;
         }
 
         return false; // Wi-Fi adapter is OFF

@@ -28,7 +28,7 @@ public class FileDataService {
 
         FileData fileData = new FileData();
 
-        Manifest mf = openManifest(packageInfo.applicationInfo.sourceDir);
+        Manifest mf = openManifest(packageInfo);
 
         if (mf == null) {
             return fileData;
@@ -97,26 +97,32 @@ public class FileDataService {
         return fileData;
     }
 
-    public int getNumberOfFiles(@NonNull PackageInfo packageInfo) {
-        Manifest mf = openManifest(packageInfo.applicationInfo.sourceDir);
-
-        return mf == null ? 0 : mf.getEntries().size();
-    }
-
     /**
      * Gets all entries from application manifest file
      *
-     * @param source APK package location
+     * @param packageInfo APK packageInfo
      * @return all entries on manifest file or null, manifest is not found
      */
     @Nullable
-    private Manifest openManifest(String source) {
+    private Manifest openManifest(PackageInfo packageInfo) {
+        if (packageInfo.applicationInfo == null || packageInfo.applicationInfo.sourceDir == null)
+            return null;
+
         Manifest mf = null;
+        JarFile jar = null;
         try {
-            JarFile jar = new JarFile(source);
+            jar = new JarFile(packageInfo.applicationInfo.sourceDir);
             mf = jar.getManifest();
         } catch (IOException e) {
             Log.e(FileDataService.class.getSimpleName(), "Unable to find manifest", e);
+        } finally {
+            if (jar != null) {
+                try {
+                    jar.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
         return mf;
     }

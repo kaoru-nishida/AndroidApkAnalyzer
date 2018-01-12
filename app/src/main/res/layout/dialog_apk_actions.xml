@@ -11,6 +11,14 @@
         android:showDividers="beginning|end|middle">
 
         <Button
+            android:id="@+id/btn_install_app"
+            style="@style/ApkActionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/install_app"
+            android:visibility="gone"/>
+
+        <Button
             android:id="@+id/btn_copy"
             style="@style/ApkActionButton"
             android:layout_width="match_parent"
@@ -37,6 +45,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/show_app_system_page" />
+
+        <Button
+            android:id="@+id/btn_show_app_google_play"
+            style="@style/ApkActionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/show_app_google_play" />
 
     </LinearLayout>
 </ScrollView>
